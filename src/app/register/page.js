@@ -66,7 +66,7 @@ const handleLoginSubmit = async (e) => {
 
     if (data.success) {
       document.cookie = `token=${data.token}; path=/`;
-      router.push("Views/dashboard");
+      router.push("/staff"); // Redirect to staff dashboard
     } else {
       alert(`Login failed: ${data.message}`);
     }
