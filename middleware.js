@@ -1,38 +1,37 @@
-import { NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
+import { NextResponse } from "next/server";
+import { jwtVerify } from "jose";
 
-export function middleware(req) {
-  const token = req.cookies.get('token')?.value;
+export async function middleware(req) {
+  const token = req.cookies.get("token")?.value;
   const url = req.nextUrl.clone();
 
-  // No token? Block staff/admin access
   if (!token) {
     if (url.pathname.startsWith("/admin") || url.pathname.startsWith("/staff")) {
       return NextResponse.redirect(new URL("/", req.url));
     }
-    return NextResponse.next(); // allow public pages
+    return NextResponse.next();
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET);
+    const { payload } = await jwtVerify(token, secret);
 
-    // ✅ Block non-admins from /admin
-    if (url.pathname.startsWith("/admin") && decoded.role !== "admin") {
+    // 🔐 Role-based access control
+    if (url.pathname.startsWith("/admin") && payload.role !== "admin") {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
 
-    // ✅ Block non-staff/admin from /staff
-    if (url.pathname.startsWith("/staff") && !["staff", "admin"].includes(decoded.role)) {
+    if (url.pathname.startsWith("/staff") && !["staff", "admin"].includes(payload.role)) {
       return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
 
     return NextResponse.next();
-  } catch (error) {
-    console.error("JWT error:", error);
+  } catch (err) {
+    console.error("JWT Verify Error:", err);
     return NextResponse.redirect(new URL("/", req.url));
   }
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/staff/:path*"], // secure only these paths
+  matcher: ["/admin/:path*", "/staff/:path*"],
 };
